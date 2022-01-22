@@ -45,7 +45,7 @@ ui <- ui <- navbarPage("My Application",
                                   sidebarPanel(
                                     helpText("Select the variables to be included as colors"),
                                     
-                                    selectInput("var", 
+                                    selectInput("attribute", 
                                                 label = "Choose a variable to display",
                                                 choices = c("Recruitment Source", "Race",
                                                             "Sex"),
@@ -68,28 +68,22 @@ ui <- ui <- navbarPage("My Application",
                        tabPanel("Satisfaction",
                                 h2("Heatmap"),
                                 fluidPage(
-                                  h4("Select the variables to be included"),
-                                  column(4,
-                                         
-                                         selectInput("varX", 
-                                                     label = "Choose a variable to display in the x axis",
-                                                     choices = c("Position", "Department","Performance Score"),
-                                                     selected = "Department")
-                                  ),
+                                  h4("Select the variables to be included as colors"),
                                   
                                   column(4,
-                                         selectInput("varY", 
-                                                     label = "Choose a variable to display in the y axis",
-                                                     choices = c("Position", "Department","Performance Score")),
-                                         selected = "Position")
+                                  selectInput("score", 
+                                              label = "Choose a variable to display",
+                                              choices = c("PerfScoreID", "Satisfaction","Salary"),
+                                              selected = "Performance"),
+          
                                 ),
                                 
-                                hr(),
-                                
+
                                 plotOutput("heatmap", height = 1000)
                                 
-                       )
+                                     )
                        
+                                )
 )
 
 # Define server logic required to draw a histogram ----
@@ -166,11 +160,11 @@ server <- function(input,output){
   
   output$stacked_bar <- renderPlot({
     
-    fill <- switch(input$var, 
+    feature <- switch(input$attribute, 
                    "Recruitment Source" = complete_data$RecruitmentSource,
                    "Race" = complete_data$RaceDesc,
                    "Sex" = complete_data$Sex)
-    stack_var = input$var
+    stack_var = input$attribute
     position <- switch(input$norm,
                        "Normalized" = "fill", 
                        "Stacked" = "stack",
@@ -179,7 +173,7 @@ server <- function(input,output){
     if (position=='Normalized'){count='Percentage'}
     else {count = 'Count'}
     
-    ggplot(complete_data, aes(fill=fill, x=Department)) + 
+    ggplot(complete_data, aes(fill=feature, x=Department)) + 
       geom_bar(position=position) +
       scale_fill_brewer(palette = "Set1") +
       labs(y = count, fill=stack_var) + 
@@ -194,22 +188,17 @@ server <- function(input,output){
   
   output$heatmap <- renderPlot({
     
-    varX <- switch(input$varX, 
-                   "Position" = complete_data$Position,
-                   "Department" = complete_data$Department,
-                   "Performance Score" = complete_data$PerformanceScore)
+    score_data <- switch(input$score, 
+                   "PerfScoreID" = complete_data$PerfScoreID,
+                   "Satisfaction" = complete_data$EmpSatisfaction,
+                   "Salary" = complete_data$Salary)
     
-    varY <- switch(input$varY,
-                   "Position" = complete_data$Position,
-                   "Department" = complete_data$Department,
-                   "Performance Score" = complete_data$PerformanceScore)
+    lab_x = 'Department'
+    lab_y = 'Position'
     
-    lab_x = input$varX
-    lab_y = input$varY
-    
-    ggplot(complete_data, aes(x=varX, y=varY, fill=EmpSatisfaction)) + 
+    ggplot(complete_data, aes(x=Department, y=Position, fill=score_data)) + 
       geom_tile() +
-      labs(x = lab_x, y = lab_y, fill = 'Employee Satisfaction') +
+      labs(x = lab_x, y = lab_y, fill =input$score) +
       theme(axis.text = element_text(size=15),
             axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
             axis.title = element_text(size=20),
