@@ -3,10 +3,15 @@ library(ggplot2)
 library(tidyverse)
 
 complete_data = read.csv('data/HRDataset_v14.csv', header=TRUE, sep=',')
-mean_salary <- complete_data %>%
+mean_data <- complete_data %>%
   na.omit() %>%
   group_by(MaritalDesc, Sex) %>% 
   summarise(mean_salary = mean(Salary)) 
+
+median_data <- complete_data %>%
+  na.omit() %>%
+  group_by(MaritalDesc, Sex) %>% 
+  summarise(median_salary = median(Salary)) 
 
 ui <- ui <- navbarPage("My Application",
                        tabPanel("Salary",
@@ -14,8 +19,16 @@ ui <- ui <- navbarPage("My Application",
                                   titlePanel(title = h2("Incomes in a year by Sex for different Marital Categories", align="center")),
                                   
                                   hr(),
+                                  column (2, 
+                                          h4("Select the statistic to show:"),
+                                          radioButtons("STATISTIC", "Select the statistic",
+                                                       choices = c("Mean", "Median"),
+                                                       selected = "Mean"),
+                                  ),
                                   
-                                  plotOutput("global"),
+                                  column(10,
+                                         plotOutput("global"),
+                                  ),
                                   
                                   hr(), 
                                   
@@ -51,8 +64,6 @@ ui <- ui <- navbarPage("My Application",
                                                             "Sex"),
                                                 selected = "Recruitment Source"),
                                     
-                                    br(),
-                                    br(),
                                     
                                     selectInput("norm", 
                                                 label = "Select normalization option in y axis",
@@ -106,7 +117,16 @@ server <- function(input,output){
   
   
   output$global <-  renderPlot({
-    ggplot(mean_salary, aes(x=Sex, y=mean_salary, fill=Sex)) + 
+    if (input$STATISTIC=="Mean"){
+      use_data = mean_data
+      y_data = mean_data$mean_salary
+    }
+    
+    else{
+      use_data = median_data
+      y_data = median_data$median_salary
+    }
+    ggplot(mean_data, aes(x=Sex, y=y_data, fill=Sex)) + 
       geom_col(width=0.3) +
       facet_wrap(~MaritalDesc) +
       xlab("Gender") + 
@@ -124,13 +144,25 @@ server <- function(input,output){
     
     our_data <- reactive_data_marital()
     
-    Male = mean(our_data[our_data$Sex=='M ',]$Salary)
-    Female = mean(our_data[our_data$Sex=='F',]$Salary)
-    Male_sd = sd(our_data[our_data$Sex=='M ',]$Salary)
-    Female_sd = sd(our_data[our_data$Sex=='F',]$Salary)
+    if (input$STATISTIC=="Mean"){
+      Male = mean(our_data[our_data$Sex=='M ',]$Salary)
+      Female = mean(our_data[our_data$Sex=='F',]$Salary)
+      Male_sd = sd(our_data[our_data$Sex=='M ',]$Salary)
+      Female_sd = sd(our_data[our_data$Sex=='F',]$Salary)
+    }
+    
+    else{
+      Male = median(our_data[our_data$Sex=='M ',]$Salary)
+      Female = median(our_data[our_data$Sex=='F',]$Salary)
+      Male_sd = mad(our_data[our_data$Sex=='M ',]$Salary)
+      Female_sd = mad(our_data[our_data$Sex=='F',]$Salary)
+    }
+    
+    
     
     salary_data = data.frame(Gender=c('Male', 'Female'), Salary=c(Male, Female),
                              sd_error=c(Male_sd, Female_sd))
+    
     ggplot(salary_data, aes(x=Gender, y=Salary, fill=Gender)) + 
       geom_col(width=0.3) +
       geom_errorbar(aes(x=Gender, ymin=Salary-sd_error, ymax=Salary+sd_error), 
@@ -145,9 +177,14 @@ server <- function(input,output){
   output$histogram <- renderPlot({
     work_data <- reactive_data_gender()
     histogram_title = paste(input$MARITAL, 'and', input$GENDER)
-    
+    if (input$GENDER == 'Male'){
+      color_selected = "#00BFC4"
+    }
+    else{
+      color_selected = "#F8766D"
+    }
     ggplot(work_data, aes(Salary)) +
-      geom_histogram() +
+      geom_histogram(color='black', fill = color_selected) +
       ggtitle(histogram_title) + 
       xlab("Salary") + 
       ylab("Count") + 
@@ -164,7 +201,9 @@ server <- function(input,output){
                    "Recruitment Source" = complete_data$RecruitmentSource,
                    "Race" = complete_data$RaceDesc,
                    "Sex" = complete_data$Sex)
+    
     stack_var = input$attribute
+    
     position <- switch(input$norm,
                        "Normalized" = "fill", 
                        "Stacked" = "stack",
